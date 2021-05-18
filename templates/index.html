@@ -8,11 +8,25 @@
 <video autoplay width="400px" height="400px"></video>
 <button onclick="start_camera()">Start camera</button>
 <button onclick="stop_camera()">Stop camera</button>
+<form action="/submit" method="post" enctype="multipart/form-data">
+    <input type="file" hidden id="videoFile" name="videoFile"/>
+    <button>Submit</button>
+</form>
 <script>
     // https://www.html5rocks.com/en/tutorials/getusermedia/intro/
     function hasGetUserMedia() { // Check if we can access camera
         return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     }
+
+    function createFileList(a) {  // https://stackoverflow.com/questions/50157450/send-blob-object-with-post-form
+        a = [].slice.call(Array.isArray(a) ? a : arguments)
+        for (var c, b = c = a.length, d = !0; b-- && d;) d = a[b] instanceof File
+        if (!d) throw new TypeError('expected argument to FileList is File or array of File objects')
+        for (b = (new ClipboardEvent('')).clipboardData || new DataTransfer; c--;) b.items.add(a[c])
+        return b.files
+    }
+
+    const downloadLink = document.getElementById('file');
 
     const constraints = {
         video: true,
@@ -21,10 +35,14 @@
     window.AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioContext = new AudioContext();
 
+    let shouldStop = false;
+    let stopped = false;
 
     const video = document.querySelector("video");  // Display
 
     function start_camera(){
+        shouldStop = false;
+        stopped = false;
         if (hasGetUserMedia()) {  // Check if browser supports recording
 
             // Ask for permissions and start recording, if no permission given, alert
@@ -33,9 +51,42 @@
                 let microphone = audioContext.createMediaStreamSource(stream);
                 window.stream = stream; // Make stream available from global context
 
-                microphone.connect(audioContext.destination)
+                // This will play back audio
+                //microphone.connect(audioContext.destination)
+
+                // Media recorder will save data
+                // https://developers.google.com/web/fundamentals/media/recording-video
+                const options = {mimeType: 'video/webm'};
+                const recordedChunks = [];
+                const mediaRecorder = new MediaRecorder(stream, options);
+                mediaRecorder.addEventListener('dataavailable', function(e) {
+                    if (e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                    }
+
+                    if(shouldStop === true && stopped === false) {
+                        stopped = true;
+                        if(mediaRecorder.state != 'inactive') {
+                            mediaRecorder.stop();
+                        }
+                    }
+                });
+
+                mediaRecorder.addEventListener('stop', function() {
+                    //downloadLink.href = URL.createObjectURL(new Blob(recordedChunks));
+
+                    let file = new File([new Blob(recordedChunks)], 'filename.webm', {type: 'video/webm'})
+                    let input = document.getElementById('videoFile')
+
+                    input.type = 'file'
+                    input.files = createFileList(file)
+                    input.hidden = true
+                });
+
+                mediaRecorder.start();
 
             }).catch((e)=>{
+                console.log(e)
                 alert("We need permission to use the camera!")
             });
 
@@ -45,6 +96,7 @@
     }
 
     function stop_camera(){  // Stop recording stream
+        shouldStop = true;
         if (window.stream) {
             window.stream.getTracks().forEach(function (track) {
                 track.stop();
