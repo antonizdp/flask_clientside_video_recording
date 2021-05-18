@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+</head>
+<body>
+<video autoplay width="400px" height="400px"></video>
+<button onclick="start_camera()">Start camera</button>
+<button onclick="stop_camera()">Stop camera</button>
+<script>
+    // https://www.html5rocks.com/en/tutorials/getusermedia/intro/
+    function hasGetUserMedia() { // Check if we can access camera
+        return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    }
+
+    const constraints = {
+        video: true,
+        audio: true,
+    };
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContext();
+
+
+    const video = document.querySelector("video");  // Display
+
+    function start_camera(){
+        if (hasGetUserMedia()) {  // Check if browser supports recording
+
+            // Ask for permissions and start recording, if no permission given, alert
+            navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+                video.srcObject = stream;
+                let microphone = audioContext.createMediaStreamSource(stream);
+                window.stream = stream; // Make stream available from global context
+
+                microphone.connect(audioContext.destination)
+
+            }).catch((e)=>{
+                alert("We need permission to use the camera!")
+            });
+
+        } else {
+            alert("getUserMedia() is not supported by your browser");
+        }
+    }
+
+    function stop_camera(){  // Stop recording stream
+        if (window.stream) {
+            window.stream.getTracks().forEach(function (track) {
+                track.stop();
+            });
+        }
+    }
+</script>
+</body>
+</html>
