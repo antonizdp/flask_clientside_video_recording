@@ -13,6 +13,48 @@
     <button>Submit</button>
 </form>
 <script>
+    function getSupportedMimeTypes() {
+        const VIDEO_TYPES = [
+            "webm",
+            "mp4",
+            "x-matroska",
+            "ogg",
+        ];
+        const VIDEO_CODECS = [
+            "vp9",
+            "vp9.0",
+            "vp8",
+            "vp8.0",
+            "h264",
+            "h.264",
+            "h265",
+            "h.265",
+            "avc1",
+            "av1",
+            "opus",
+        ];
+
+        const supportedTypes = [];
+        VIDEO_TYPES.forEach((videoType) => {
+            const type = `video/${videoType}`;
+            VIDEO_CODECS.forEach((codec) => {
+                const variations = [
+                    `${type};codecs=${codec}`,
+                    `${type};codecs:${codec}`,
+                    `${type};codecs=${codec.toUpperCase()}`,
+                    `${type};codecs:${codec.toUpperCase()}`,
+                    `${type}`
+                ]
+                variations.forEach(variation => {
+                    if(MediaRecorder.isTypeSupported(variation))
+                        supportedTypes.push(variation);
+                })
+            });
+        });
+        return supportedTypes;
+    }
+</script>
+<script>
     // https://www.html5rocks.com/en/tutorials/getusermedia/intro/
     function hasGetUserMedia() { // Check if we can access camera
         return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -37,6 +79,9 @@
 
     let shouldStop = false;
     let stopped = false;
+    let supportedMimeTypes = getSupportedMimeTypes();
+    console.log(supportedMimeTypes)
+    const mimeType = supportedMimeTypes[0];
 
     const video = document.querySelector("video");  // Display
 
@@ -56,7 +101,7 @@
 
                 // Media recorder will save data
                 // https://developers.google.com/web/fundamentals/media/recording-video
-                const options = {mimeType: 'video/webm'};
+                const options = {mimeType: mimeType};
                 const recordedChunks = [];
                 const mediaRecorder = new MediaRecorder(stream, options);
                 mediaRecorder.addEventListener('dataavailable', function(e) {
@@ -74,8 +119,12 @@
 
                 mediaRecorder.addEventListener('stop', function() {
                     //downloadLink.href = URL.createObjectURL(new Blob(recordedChunks));
-
-                    let file = new File([new Blob(recordedChunks)], 'filename.webm', {type: 'video/webm'})
+                    let extension = '';
+                    if(mimeType.includes('webm'))extension = 'webm'
+                    if(mimeType.includes('mp4'))extension = 'mp4'
+                    if(mimeType.includes('x-matroska'))extension = 'avl'
+                    if(mimeType.includes('ogg'))extension = 'ogg'
+                    let file = new File([new Blob(recordedChunks)], 'filename.'+extension, {type: mimeType})
                     let input = document.getElementById('videoFile')
 
                     input.type = 'file'
